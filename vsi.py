@@ -20,8 +20,8 @@ ERROR = "#ff8787"
 NEUTRAL = "#cbd5e1"
 
 
-def clamp_value(value):
-    return max(MIN_FPM, min(MAX_FPM, float(value)))
+def clamp_value(value: float) -> float:
+    return max(float(MIN_FPM), min(float(MAX_FPM), float(value)))
 
 
 def parse_fpm_input(text):
@@ -44,16 +44,20 @@ class VSIApp:
         self.root = root
         self.root.title("Vertical Speed Indicator")
         self.root.configure(bg=APP_BG)
-        self.root.geometry("1080x640")
-        self.root.minsize(1080, 640)
-        self.root.resizable(False, False)
+        self.root.geometry("1080x680")
+        self.root.minsize(900, 600)
+        self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
 
-        self.width = 520
-        self.height = 520
-        self.cx = self.width / 2
-        self.cy = self.height / 2
-        self.r = 210
+        from typing import Optional
+
+        # These are computed dynamically on first canvas render
+        self.width: float = 520
+        self.height: float = 520
+        self.cx: float = self.width / 2
+        self.cy: float = self.height / 2
+        self.r: float = 210
+        self._resize_job: Optional[str] = None
 
         self.target_val = 0.0
         self.current_val = 0.0
@@ -65,38 +69,19 @@ class VSIApp:
         self.live_display_var = tk.StringVar(value=format_fpm_value(0))
         self.status_var = tk.StringVar(value="Hazir. Yeni hedef dikey hızı seçin.")
 
-        self.build_layout()
-        self.draw_gauge()
+        self.needle: Optional[int] = None
+        self.center_cap: Optional[int] = None
+        # Pre-declared for Pyre2 static analysis (assigned inside build_layout)
+        self.canvas: tk.Canvas
+        self.input_entry: tk.Entry
+        self.scale: tk.Scale
+        self.status_label: tk.Label
 
-        self.canvas.create_oval(
-            self.cx - 20,
-            self.cy - 20,
-            self.cx + 20,
-            self.cy + 20,
-            fill="#1c1c1c",
-            outline="",
-        )
-        self.needle = self.canvas.create_line(
-            self.cx,
-            self.cy,
-            self.cx,
-            self.cy,
-            fill=ACCENT,
-            width=4,
-            capstyle=tk.ROUND,
-        )
-        self.center_cap = self.canvas.create_oval(
-            self.cx - 15,
-            self.cy - 15,
-            self.cx + 15,
-            self.cy + 15,
-            fill="#2a2a2a",
-            outline="#000000",
-            width=2,
-        )
+        self.build_layout()
+
+        # gauge is drawn on first <Configure> event from canvas
 
         self.apply_value(0, announce=False)
-        self.update_needle(0)
         self.animate()
 
     def build_layout(self):
@@ -131,22 +116,12 @@ class VSIApp:
 
         self.canvas = tk.Canvas(
             gauge_shell,
-            width=self.width,
-            height=self.height,
             bg=GAUGE_BG,
             highlightthickness=0,
             bd=0,
         )
-        self.canvas.pack()
-
-        gauge_footer = tk.Label(
-            gauge_shell,
-            text="Ibre hedefe yumusak sekilde yaklasir.",
-            bg=PANEL_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 10),
-        )
-        gauge_footer.pack(anchor="center", pady=(14, 0))
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
 
         control_shell = tk.Frame(main_frame, bg=PANEL_BG, padx=24, pady=24)
         control_shell.grid(row=0, column=1, sticky="nsew")
@@ -456,15 +431,57 @@ class VSIApp:
         self.apply_value(0)
         self.set_status("Gosterge sifirlandi. Hedef dikey hiz 0 FPM.", "success")
 
+    def _on_canvas_resize(self, event):
+        """Debounced resize handler — redraws gauge to fit canvas."""
+        if self._resize_job:
+            self.root.after_cancel(self._resize_job)
+        self._resize_job = self.root.after(60, self._do_resize)
+
+    def _do_resize(self):
+        self._resize_job = None
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w < 10 or h < 10:
+            return
+        self.width = w
+        self.height = h
+        self.cx = w / 2
+        self.cy = h / 2
+        # Radius: 45% of the smaller dimension, leave margin
+        self.r = min(w, h) * 0.45
+        self.canvas.delete("all")
+        self.draw_gauge()
+        # Recreate moving elements on top
+        self.needle = self.canvas.create_line(
+            self.cx, self.cy, self.cx, self.cy,
+            fill=ACCENT, width=max(2, int(self.r * 0.018)),
+            capstyle=tk.ROUND,
+        )
+        self.center_cap = self.canvas.create_oval(
+            self.cx - self.r * 0.07, self.cy - self.r * 0.07,
+            self.cx + self.r * 0.07, self.cy + self.r * 0.07,
+            fill="#2a2a2a", outline="#000000", width=2,
+        )
+        self.update_needle(self.current_val)
+
     def val_to_angle(self, value):
         return 180 - clamp_value(value) * 0.03
 
     def draw_gauge(self):
+        r = self.r
+        # Scale tick lengths and font sizes with radius
+        tick_major = max(12, int(r * 0.12))
+        tick_mid   = max(8,  int(r * 0.07))
+        tick_minor = max(4,  int(r * 0.04))
+        lbl_offset = int(r * 0.26)   # distance from centre to label
+        font_num   = max(10, int(r * 0.10))
+        font_label = max(8,  int(r * 0.075))
+
         self.canvas.create_oval(
-            self.cx - self.r - 15,
-            self.cy - self.r - 15,
-            self.cx + self.r + 15,
-            self.cy + self.r + 15,
+            self.cx - r - 15,
+            self.cy - r - 15,
+            self.cx + r + 15,
+            self.cy + r + 15,
             fill="#1a1a1a",
             outline="#3a3a3a",
             width=6,
@@ -473,89 +490,81 @@ class VSIApp:
         for value in range(MIN_FPM, MAX_FPM + 1, 100):
             angle = math.radians(self.val_to_angle(value))
             if value % 1000 == 0:
-                length = 25
-                width = 4
+                length = tick_major
+                width = max(2, int(r * 0.018))
             elif value % 500 == 0:
-                length = 15
-                width = 2
+                length = tick_mid
+                width = max(1, int(r * 0.009))
             else:
-                length = 8
+                length = tick_minor
                 width = 1
 
             color = "#ffffff"
             if value > 5000 or value < -5000:
                 color = "#e63946"
 
-            x1 = self.cx + (self.r - length) * math.cos(angle)
-            y1 = self.cy - (self.r - length) * math.sin(angle)
-            x2 = self.cx + self.r * math.cos(angle)
-            y2 = self.cy - self.r * math.sin(angle)
+            x1 = self.cx + (r - length) * math.cos(angle)
+            y1 = self.cy - (r - length) * math.sin(angle)
+            x2 = self.cx + r * math.cos(angle)
+            y2 = self.cy - r * math.sin(angle)
 
             self.canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
 
             if value % 1000 == 0 and abs(value) not in (0, 3000, 6000):
                 number = str(abs(value) // 1000)
-                nx = self.cx + (self.r - 55) * math.cos(angle)
-                ny = self.cy - (self.r - 55) * math.sin(angle)
+                nx = self.cx + (r - lbl_offset) * math.cos(angle)
+                ny = self.cy - (r - lbl_offset) * math.sin(angle)
                 self.canvas.create_text(
-                    nx,
-                    ny,
-                    text=number,
-                    fill="white",
-                    font=("Segoe UI Semibold", 22),
+                    nx, ny, text=number, fill="white",
+                    font=("Segoe UI Semibold", font_num),
                 )
 
         self.canvas.create_text(
-            self.cx + (self.r - 55) * math.cos(math.radians(180)),
-            self.cy - (self.r - 55) * math.sin(math.radians(180)),
-            text="0",
-            fill="white",
-            font=("Segoe UI Semibold", 22),
+            self.cx + (r - lbl_offset) * math.cos(math.radians(180)),
+            self.cy - (r - lbl_offset) * math.sin(math.radians(180)),
+            text="0", fill="white",
+            font=("Segoe UI Semibold", font_num),
         )
         self.canvas.create_text(
-            self.cx + (self.r - 55) * math.cos(math.radians(0)),
-            self.cy - (self.r - 55) * math.sin(math.radians(0)),
-            text="6",
-            fill="white",
-            font=("Segoe UI Semibold", 22),
+            self.cx + (r - lbl_offset) * math.cos(math.radians(0)),
+            self.cy - (r - lbl_offset) * math.sin(math.radians(0)),
+            text="6", fill="white",
+            font=("Segoe UI Semibold", font_num),
         )
 
         self.canvas.create_text(
-            self.cx,
-            self.cy - 100,
-            text="VERTICAL SPEED",
-            fill="white",
-            font=("Segoe UI", 16),
+            self.cx, self.cy - r * 0.47,
+            text="VERTICAL SPEED", fill="white",
+            font=("Segoe UI", font_label),
         )
         self.canvas.create_text(
-            self.cx,
-            self.cy + 100,
-            text="FEET/MIN x1000",
-            fill="white",
-            font=("Segoe UI", 14),
+            self.cx, self.cy + r * 0.47,
+            text="FEET/MIN x1000", fill="white",
+            font=("Segoe UI", font_label),
         )
 
         self.canvas.create_arc(
-            self.cx - self.r + 8,
-            self.cy - self.r + 8,
-            self.cx + self.r - 8,
-            self.cy + self.r - 8,
-            start=330,
-            extent=60,
-            style=tk.ARC,
-            outline="#e63946",
-            width=3,
+            self.cx - r + 8, self.cy - r + 8,
+            self.cx + r - 8, self.cy + r - 8,
+            start=330, extent=60,
+            style=tk.ARC, outline="#e63946", width=3,
         )
 
     def update_needle(self, value):
+        if self.needle is None:
+            return
         angle = math.radians(self.val_to_angle(value))
-        tail_x = self.cx + 40 * math.cos(angle + math.pi)
-        tail_y = self.cy - 40 * math.sin(angle + math.pi)
-        head_x = self.cx + (self.r - 20) * math.cos(angle)
-        head_y = self.cy - (self.r - 20) * math.sin(angle)
+        tail_len = self.r * 0.19
+        head_len = self.r * 0.90
+        tail_x = self.cx + tail_len * math.cos(angle + math.pi)
+        tail_y = self.cy - tail_len * math.sin(angle + math.pi)
+        head_x = self.cx + head_len * math.cos(angle)
+        head_y = self.cy - head_len * math.sin(angle)
 
-        self.canvas.coords(self.needle, tail_x, tail_y, head_x, head_y)
-        self.canvas.tag_raise(self.center_cap)
+        assert self.needle is not None
+        assert self.center_cap is not None
+        self.canvas.coords(self.needle, tail_x, tail_y, head_x, head_y)  # type: ignore[arg-type]
+        self.canvas.tag_raise(self.center_cap)  # type: ignore[arg-type]
 
     def animate(self):
         difference = self.target_val - self.current_val
