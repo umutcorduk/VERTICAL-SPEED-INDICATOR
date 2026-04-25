@@ -519,6 +519,20 @@ class VSIApp:
                     font=("Segoe UI Semibold", font_num),
                 )
 
+        # Extra fine ticks every 50 FPM in the ±1000 FPM zone (0–1 range)
+        # Makes the low-speed region look like a real aircraft VSI
+        tick_fine = max(3, int(r * 0.028))
+        for value in range(-1000, 1001, 50):
+            if value % 100 == 0:
+                continue  # already drawn above
+            angle = math.radians(self.val_to_angle(value))
+            x1 = self.cx + (r - tick_fine) * math.cos(angle)
+            y1 = self.cy - (r - tick_fine) * math.sin(angle)
+            x2 = self.cx + r * math.cos(angle)
+            y2 = self.cy - r * math.sin(angle)
+            self.canvas.create_line(x1, y1, x2, y2, fill="#aaaaaa", width=1)
+
+
         self.canvas.create_text(
             self.cx + (r - lbl_offset) * math.cos(math.radians(180)),
             self.cy - (r - lbl_offset) * math.sin(math.radians(180)),
