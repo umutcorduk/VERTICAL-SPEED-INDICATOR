@@ -63,6 +63,12 @@ class VSIApp:
         self.current_val = 0.0
         self._syncing_controls = False
 
+        self.alt_var = tk.StringVar(value="10000")
+        self.target_alt = 10000.0
+        self.current_alt = 10000.0
+        self.alt_text_id: Optional[int] = None
+        self.alt_bg_id: Optional[int] = None
+
         self.input_var = tk.StringVar(value="0")
         self.scale_var = tk.DoubleVar(value=0.0)
         self.target_display_var = tk.StringVar(value=format_fpm_value(0))
@@ -227,8 +233,59 @@ class VSIApp:
         )
         reset_button.grid(row=3, column=0, sticky="w", pady=(12, 0))
 
+        alt_card = self.create_card(control_shell)
+        alt_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        alt_card.grid_columnconfigure(0, weight=1)
+
+        alt_label = tk.Label(
+            alt_card,
+            text="Hedef İrtifa (Baro Alt)",
+            bg=CARD_BG,
+            fg=TEXT_PRIMARY,
+            font=("Segoe UI Semibold", 12),
+        )
+        alt_label.grid(row=0, column=0, sticky="w")
+
+        alt_hint = tk.Label(
+            alt_card,
+            text="Gecerli aralik: 0 ile 50000 FT",
+            bg=CARD_BG,
+            fg=TEXT_MUTED,
+            font=("Segoe UI", 9),
+        )
+        alt_hint.grid(row=1, column=0, sticky="w", pady=(2, 12))
+
+        alt_entry_row = tk.Frame(alt_card, bg=CARD_BG)
+        alt_entry_row.grid(row=2, column=0, sticky="ew")
+        alt_entry_row.grid_columnconfigure(0, weight=1)
+
+        self.alt_entry = tk.Entry(
+            alt_entry_row,
+            textvariable=self.alt_var,
+            bg=APP_BG,
+            fg=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#324567",
+            highlightcolor=ACCENT,
+            font=("Segoe UI Semibold", 16),
+        )
+        self.alt_entry.grid(row=0, column=0, sticky="ew", ipady=12, padx=(0, 10))
+        self.alt_entry.bind("<Return>", self.on_alt_submit)
+
+        alt_apply_button = self.create_button(
+            alt_entry_row,
+            text="Uygula",
+            command=self.on_alt_submit,
+            primary=True,
+            width=10,
+        )
+        alt_apply_button.grid(row=0, column=1)
+
         slider_card = self.create_card(control_shell)
-        slider_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        slider_card.grid(row=5, column=0, sticky="ew", pady=(0, 14))
         slider_card.grid_columnconfigure(0, weight=1)
 
         slider_label = tk.Label(
@@ -285,7 +342,7 @@ class VSIApp:
             label.grid(row=0, column=index, sticky=("w" if index == 0 else "e" if index == 2 else ""))
 
         preset_card = self.create_card(control_shell)
-        preset_card.grid(row=5, column=0, sticky="ew", pady=(0, 14))
+        preset_card.grid(row=6, column=0, sticky="ew", pady=(0, 14))
         preset_card.grid_columnconfigure(0, weight=1)
         preset_card.grid_columnconfigure(1, weight=1)
         preset_card.grid_columnconfigure(2, weight=1)
@@ -312,7 +369,7 @@ class VSIApp:
             button.grid(row=1, column=index, padx=(0 if index == 0 else 6, 0), sticky="ew")
 
         status_card = self.create_card(control_shell)
-        status_card.grid(row=6, column=0, sticky="ew")
+        status_card.grid(row=7, column=0, sticky="ew")
 
         status_title = tk.Label(
             status_card,
@@ -407,6 +464,19 @@ class VSIApp:
         self.scale_var.set(rounded_value)
         self._syncing_controls = False
 
+    def on_alt_submit(self, event=None):
+        try:
+            val = float(self.alt_var.get().strip())
+            val = max(0.0, min(50000.0, val))
+            self.target_alt = val
+            self.alt_var.set(str(int(val)))
+            self.set_status(f"Hedef irtifa {int(val)} FT olarak ayarlandı.", "success")
+        except ValueError:
+            self.set_status("Gecerli bir irtifa girin (örn: 10000).", "error")
+            self.alt_entry.focus_set()
+            self.alt_entry.selection_range(0, tk.END)
+        return "break"
+
     def on_entry_submit(self, event=None):
         try:
             requested_value = parse_fpm_input(self.input_var.get())
@@ -451,6 +521,31 @@ class VSIApp:
         self.r = min(w, h) * 0.45
         self.canvas.delete("all")
         self.draw_gauge()
+
+        # Recreate altimeter box
+        box_w = max(50, int(self.r * 0.28))
+        box_h = max(18, int(self.r * 0.14))
+        box_x = self.cx
+        box_y = self.cy + self.r * 0.26
+        self.alt_bg_id = self.canvas.create_rectangle(
+            box_x - box_w, box_y - box_h,
+            box_x + box_w, box_y + box_h,
+            fill="#050505", outline="#1a1a1a", width=3,
+        )
+        # Background "ghost" digits for realistic LED effect
+        self.alt_ghost_id = self.canvas.create_text(
+            box_x, box_y,
+            text="88888",
+            fill="#2a0d00",
+            font=("Consolas", max(14, int(self.r * 0.15)), "bold")
+        )
+        self.alt_text_id = self.canvas.create_text(
+            box_x, box_y,
+            text=f"{int(self.current_alt):05d}",
+            fill="#ff5500",
+            font=("Consolas", max(14, int(self.r * 0.15)), "bold")
+        )
+
         # Recreate moving elements on top
         self.needle = self.canvas.create_polygon(
             self.cx, self.cy, self.cx, self.cy, self.cx, self.cy, self.cx, self.cy,
@@ -617,6 +712,15 @@ class VSIApp:
         else:
             # Close enough — snap exactly to avoid micro-jitter
             self.current_val = self.target_val
+
+        alt_diff = self.target_alt - self.current_alt
+        if abs(alt_diff) > 1.0:
+            self.current_alt += alt_diff * 0.05
+        else:
+            self.current_alt = self.target_alt
+
+        if hasattr(self, 'alt_text_id') and self.alt_text_id:
+            self.canvas.itemconfig(self.alt_text_id, text=f"{int(self.current_alt):05d}")
 
         self.live_display_var.set(format_fpm_value(self.current_val))
         self.update_needle(self.current_val)
