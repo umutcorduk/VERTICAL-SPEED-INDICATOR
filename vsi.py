@@ -452,10 +452,9 @@ class VSIApp:
         self.canvas.delete("all")
         self.draw_gauge()
         # Recreate moving elements on top
-        self.needle = self.canvas.create_line(
-            self.cx, self.cy, self.cx, self.cy,
-            fill=ACCENT, width=max(2, int(self.r * 0.018)),
-            capstyle=tk.ROUND,
+        self.needle = self.canvas.create_polygon(
+            self.cx, self.cy, self.cx, self.cy, self.cx, self.cy, self.cx, self.cy,
+            fill=ACCENT, outline=ACCENT, width=1,
         )
         self.center_cap = self.canvas.create_oval(
             self.cx - self.r * 0.07, self.cy - self.r * 0.07,
@@ -517,7 +516,7 @@ class VSIApp:
 
             self.canvas.create_line(x1, y1, x2, y2, fill=color, width=width)
 
-            if value % 1000 == 0 and abs(value) not in (0, 3000, 6000):
+            if value % 1000 == 0 and abs(value) not in (0, 6000):
                 number = str(abs(value) // 1000)
                 nx = self.cx + (r - lbl_offset) * math.cos(angle)
                 ny = self.cy - (r - lbl_offset) * math.sin(angle)
@@ -579,14 +578,24 @@ class VSIApp:
         angle = math.radians(self.val_to_angle(value))
         tail_len = self.r * 0.19
         head_len = self.r * 0.90
-        tail_x = self.cx + tail_len * math.cos(angle + math.pi)
-        tail_y = self.cy - tail_len * math.sin(angle + math.pi)
-        head_x = self.cx + head_len * math.cos(angle)
-        head_y = self.cy - head_len * math.sin(angle)
+        base_w = max(3.0, self.r * 0.025)
+        tip_w = max(0.5, self.r * 0.005)
+
+        fl_x = self.cx + head_len * math.cos(angle) + tip_w * math.cos(angle + math.pi/2)
+        fl_y = self.cy - head_len * math.sin(angle) - tip_w * math.sin(angle + math.pi/2)
+
+        fr_x = self.cx + head_len * math.cos(angle) + tip_w * math.cos(angle - math.pi/2)
+        fr_y = self.cy - head_len * math.sin(angle) - tip_w * math.sin(angle - math.pi/2)
+
+        br_x = self.cx + tail_len * math.cos(angle + math.pi) + base_w * math.cos(angle - math.pi/2)
+        br_y = self.cy - tail_len * math.sin(angle + math.pi) - base_w * math.sin(angle - math.pi/2)
+
+        bl_x = self.cx + tail_len * math.cos(angle + math.pi) + base_w * math.cos(angle + math.pi/2)
+        bl_y = self.cy - tail_len * math.sin(angle + math.pi) - base_w * math.sin(angle + math.pi/2)
 
         assert self.needle is not None
         assert self.center_cap is not None
-        self.canvas.coords(self.needle, tail_x, tail_y, head_x, head_y)  # type: ignore[arg-type]
+        self.canvas.coords(self.needle, fl_x, fl_y, fr_x, fr_y, br_x, br_y, bl_x, bl_y)  # type: ignore[arg-type]
         self.canvas.tag_raise(self.center_cap)  # type: ignore[arg-type]
 
     def animate(self):
