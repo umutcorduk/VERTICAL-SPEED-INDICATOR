@@ -480,7 +480,8 @@ class VSIApp:
         tick_mid   = max(8,  int(r * 0.07))
         tick_minor = max(4,  int(r * 0.04))
         lbl_offset = int(r * 0.26)   # distance from centre to label
-        font_num   = max(10, int(r * 0.10))
+        font_num      = max(10, int(r * 0.10))   # standard label size
+        font_num_near = max(12, int(r * 0.14))   # larger size for 0-1 region
         font_label = max(8,  int(r * 0.075))
 
         self.canvas.create_oval(
@@ -520,9 +521,11 @@ class VSIApp:
                 number = str(abs(value) // 1000)
                 nx = self.cx + (r - lbl_offset) * math.cos(angle)
                 ny = self.cy - (r - lbl_offset) * math.sin(angle)
+                # 0–1 bölgesindeki sayılar (1) daha büyük punto ile çizilir
+                chosen_font = font_num_near if abs(value) <= 1000 else font_num
                 self.canvas.create_text(
                     nx, ny, text=number, fill="white",
-                    font=("Segoe UI Semibold", font_num),
+                    font=("Segoe UI Semibold", chosen_font),
                 )
 
         # Extra fine ticks every 50 FPM in the ±1000 FPM zone (0–1 range)
