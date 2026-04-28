@@ -522,7 +522,7 @@ class VSIApp:
         self.canvas.delete("all")
         self.draw_gauge()
 
-        # Recreate altimeter box
+        # Recreate altimeter LED display box
         box_w = max(50, int(self.r * 0.28))
         box_h = max(18, int(self.r * 0.14))
         box_x = self.cx
