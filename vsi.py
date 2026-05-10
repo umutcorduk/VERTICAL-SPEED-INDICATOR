@@ -1,6 +1,9 @@
 import math
 import tkinter as tk
 import customtkinter as ctk
+from PIL import Image, ImageTk
+import time
+import os
 
 
 MIN_FPM = -6000
@@ -79,6 +82,20 @@ class VSIApp:
         self.fo_static_var = tk.StringVar(value="0")
         self.stby_static_var = tk.StringVar(value="0")
         self.fault_active = False
+
+        self.model_var = ctk.StringVar(value="Yok")
+        self.active_model = "Yok"
+        self.badges = {}
+        for m in ["787", "777", "767", "747", "737", "A380", "A350", "A330", "A321", "A319", "A320"]:
+            try:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                self.badges[m] = Image.open(os.path.join(base_dir, f"badge_{m}.png")).convert("RGBA")
+            except Exception as e:
+                pass
+        self.resized_badges = {}
+        self.current_badge_photo = None
+        self.badge_id = None
+
 
         self.needle: Optional[int] = None
         self.center_cap: Optional[int] = None
@@ -405,8 +422,46 @@ class VSIApp:
             )
             button.grid(row=1, column=index, padx=(16 if index == 0 else 6, 16 if index == 4 else 0), pady=(0, 16), sticky="ew")
 
+        # Row 7: Model Selection
+        model_card = self.create_card(control_shell)
+        model_card.grid(row=7, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
+        
+        model_label = ctk.CTkLabel(
+            model_card,
+            text="UÇAK MODELİ (ROZET)",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
+        )
+        model_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 8))
+        
+        models_list = ["Yok", "787", "777", "767", "747", "737", "A380", "A350", "A330", "A321", "A319", "A320"]
+        menu_row = ctk.CTkFrame(model_card, fg_color="transparent")
+        menu_row.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 16))
+        menu_row.grid_columnconfigure(0, weight=1)
+
+        self.model_menu = ctk.CTkOptionMenu(
+            menu_row,
+            values=models_list,
+            variable=self.model_var,
+            fg_color="#000000",
+            button_color=BUTTON_ACTIVE,
+            button_hover_color=BUTTON_BG,
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold")
+        )
+        self.model_menu.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        
+        apply_btn = self.create_button(
+            menu_row,
+            text="UYGULA",
+            command=self.apply_model,
+            primary=True,
+            width=80
+        )
+        apply_btn.grid(row=0, column=1)
+        
         status_card = self.create_card(control_shell)
-        status_card.grid(row=7, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 24))
+        status_card.grid(row=8, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 24))
 
         status_title = ctk.CTkLabel(
             status_card,
@@ -469,6 +524,13 @@ class VSIApp:
             font=("Consolas", 26, "bold"),
         )
         value_label.pack(anchor="w", padx=16, pady=(4, 12))
+
+
+    def apply_model(self):
+        self.active_model = self.model_var.get()
+        print(f"Model applied: {self.active_model}")
+        if self.active_model == "Yok" and self.badge_id:
+            self.canvas.itemconfig(self.badge_id, state="hidden")
 
     def set_status(self, message, tone):
         color = {"success": SUCCESS, "error": ERROR}.get(tone, NEUTRAL)
@@ -633,6 +695,22 @@ class VSIApp:
             font=("Consolas", max(14, int(self.r * 0.15)), "bold")
         )
 
+        # Resize badges
+        self.resized_badges.clear()
+        target_width = int(self.r * 0.5)
+        for m, img in self.badges.items():
+            w, h = img.size
+            if w > 0:
+                ratio = target_width / w
+                new_h = int(h * ratio)
+                try:
+                    resample_filter = Image.Resampling.LANCZOS
+                except AttributeError:
+                    resample_filter = Image.LANCZOS
+                self.resized_badges[m] = img.resize((target_width, new_h), resample_filter)
+                
+        self.badge_id = self.canvas.create_image(self.cx, self.cy - self.r * 0.55, anchor="center")
+
         # Recreate moving elements on top
         self.needle = self.canvas.create_polygon(
             self.cx, self.cy, self.cx, self.cy, self.cx, self.cy, self.cx, self.cy,
@@ -643,6 +721,7 @@ class VSIApp:
             self.cx + self.r * 0.07, self.cy + self.r * 0.07,
             fill="#2a2a2a", outline="#000000", width=2,
         )
+        
         self.update_needle(self.current_val)
 
     def val_to_angle(self, value: float) -> float:
@@ -778,26 +857,14 @@ class VSIApp:
         assert self.needle is not None
         assert self.center_cap is not None
         self.canvas.coords(self.needle, fl_x, fl_y, fr_x, fr_y, br_x, br_y, bl_x, bl_y)  # type: ignore[arg-type]
+        self.canvas.tag_raise(self.needle)
         self.canvas.tag_raise(self.center_cap)  # type: ignore[arg-type]
 
     def animate(self):
-        """High-precision animation loop running at ~60 fps.
-
-        Precision improvements applied:
-        - Frame interval reduced from 30 ms to 16 ms (~60 fps) for silky
-          smooth needle movement.
-        - Interpolation factor raised from 0.08 to 0.10 for snappier response
-          while preserving the smooth easing feel.
-        - Snap-to-target threshold tightened from 2 FPM to 0.5 FPM so the
-          needle settles at its exact destination instead of oscillating or
-          stopping slightly off-target.
-        """
         difference = self.target_val - self.current_val
         if abs(difference) > 0.5:
-            # Exponential ease-out: move 10 % of remaining distance each frame
             self.current_val += difference * 0.10
         else:
-            # Close enough — snap exactly to avoid micro-jitter
             self.current_val = self.target_val
 
         alt_diff = self.target_alt - self.current_alt
@@ -810,7 +877,26 @@ class VSIApp:
             self.canvas.itemconfig(self.alt_text_id, text=f"{int(self.current_alt):05d}")
 
         self.live_display_var.set(format_fpm_value(self.current_val))
+        
+        # Badge animation
+        selected_model = getattr(self, 'active_model', 'Yok')
+        if selected_model != "Yok" and selected_model in self.resized_badges:
+            t = time.time()
+            alpha_ratio = (1 - math.cos(2 * math.pi * t / 4.0)) / 2.0
+            
+            base_img = self.resized_badges[selected_model]
+            r, g, b, a = base_img.split()
+            a = a.point(lambda p: int(p * alpha_ratio))
+            blended = Image.merge("RGBA", (r, g, b, a))
+            
+            self.current_badge_photo = ImageTk.PhotoImage(blended)
+            self.canvas.itemconfig(self.badge_id, image=self.current_badge_photo, state="normal")
+        else:
+            if hasattr(self, 'badge_id') and self.badge_id:
+                self.canvas.itemconfig(self.badge_id, state="hidden")
+
         self.update_needle(self.current_val)
+
         self.root.after(16, self.animate)
 
 
