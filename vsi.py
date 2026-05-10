@@ -1,23 +1,24 @@
 import math
 import tkinter as tk
+import customtkinter as ctk
 
 
 MIN_FPM = -6000
 MAX_FPM = 6000
 PRESET_VALUES = (-3000, -1500, 0, 1500, 3000)
 
-APP_BG = "#0b1220"
-PANEL_BG = "#111827"
-CARD_BG = "#172033"
-GAUGE_BG = "#151515"
-TEXT_PRIMARY = "#f8fafc"
-TEXT_MUTED = "#94a3b8"
-ACCENT = "#ffd166"
-BUTTON_BG = "#24324d"
-BUTTON_ACTIVE = "#324567"
-SUCCESS = "#8ce99a"
-ERROR = "#ff8787"
-NEUTRAL = "#cbd5e1"
+APP_BG = "#121212"
+PANEL_BG = "#121212"
+CARD_BG = "#1a1a1a"
+GAUGE_BG = "#121212"
+TEXT_PRIMARY = "#ff9d00"
+TEXT_MUTED = "#cc7e00"
+ACCENT = "#ff9d00"
+BUTTON_BG = "#0f0f0f"
+BUTTON_ACTIVE = "#331f00"
+SUCCESS = "#ff9d00"
+ERROR = "#ff0000"
+NEUTRAL = "#ff9d00"
 
 
 def clamp_value(value: float) -> float:
@@ -43,9 +44,9 @@ class VSIApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Vertical Speed Indicator")
-        self.root.configure(bg=APP_BG)
-        self.root.geometry("1080x780")
-        self.root.minsize(900, 700)
+        self.root.configure(fg_color="#000000")
+        self.root.geometry("1150x800")
+        self.root.minsize(950, 700)
         self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
 
@@ -95,34 +96,32 @@ class VSIApp:
         self.animate()
 
     def build_layout(self):
-        main_frame = tk.Frame(self.root, bg=APP_BG)
+        main_frame = ctk.CTkFrame(self.root, fg_color="#000000", corner_radius=0)
         main_frame.pack(fill="both", expand=True, padx=24, pady=24)
-        main_frame.grid_columnconfigure(0, weight=3)
-        main_frame.grid_columnconfigure(1, weight=2)
+        main_frame.grid_columnconfigure(0, weight=4)
+        main_frame.grid_columnconfigure(1, weight=5)
         main_frame.grid_rowconfigure(0, weight=1)
 
-        gauge_shell = tk.Frame(main_frame, bg=PANEL_BG, padx=22, pady=22)
-        gauge_shell.grid(row=0, column=0, sticky="nsew", padx=(0, 18))
+        gauge_shell = ctk.CTkFrame(main_frame, fg_color=PANEL_BG, corner_radius=12)
+        gauge_shell.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
 
-        gauge_title = tk.Label(
+        gauge_title = ctk.CTkLabel(
             gauge_shell,
-            text="Analog Gosterge",
-            bg=PANEL_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 18),
+            text="ANALOG GÖSTERGE",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 20, "bold"),
         )
-        gauge_title.pack(anchor="w")
+        gauge_title.pack(anchor="w", padx=24, pady=(24, 0))
 
-        gauge_subtitle = tk.Label(
+        gauge_subtitle = ctk.CTkLabel(
             gauge_shell,
             text="Vertical speed indicator canlı olarak aynı pencere içinde kontrol edilir.",
-            bg=PANEL_BG,
-            fg=TEXT_MUTED,
+            text_color=TEXT_MUTED,
             justify="left",
-            wraplength=540,
-            font=("Segoe UI", 10),
+            wraplength=400,
+            font=("Segoe UI", 12),
         )
-        gauge_subtitle.pack(anchor="w", pady=(4, 18))
+        gauge_subtitle.pack(anchor="w", padx=24, pady=(4, 20))
 
         self.canvas = tk.Canvas(
             gauge_shell,
@@ -130,93 +129,91 @@ class VSIApp:
             highlightthickness=0,
             bd=0,
         )
-        self.canvas.pack(fill="both", expand=True)
+        self.canvas.pack(fill="both", expand=True, padx=24, pady=(0, 24))
         self.canvas.bind("<Configure>", self._on_canvas_resize)
 
-        control_shell = tk.Frame(main_frame, bg=PANEL_BG, padx=24, pady=24)
+        control_shell = ctk.CTkScrollableFrame(
+            main_frame, fg_color=PANEL_BG, corner_radius=12,
+            scrollbar_button_color=BUTTON_BG,
+            scrollbar_button_hover_color=BUTTON_ACTIVE
+        )
         control_shell.grid(row=0, column=1, sticky="nsew")
         control_shell.grid_columnconfigure(0, weight=1)
+        control_shell.grid_columnconfigure(1, weight=1)
 
-        title = tk.Label(
+        title = ctk.CTkLabel(
             control_shell,
-            text="Kontrol Paneli",
-            bg=PANEL_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 22),
+            text="KONTROL PANELİ",
+            text_color=TEXT_PRIMARY,
+            font=("Consolas", 26, "bold"),
         )
-        title.grid(row=0, column=0, sticky="w")
+        title.grid(row=0, column=0, columnspan=2, sticky="w", padx=24, pady=(24, 0))
 
-        subtitle = tk.Label(
+        subtitle = ctk.CTkLabel(
             control_shell,
-            text="Terminal yerine buradan hedef FPM değerini girin, kaydirin veya hazir degerlerden secin.",
-            bg=PANEL_BG,
-            fg=TEXT_MUTED,
+            text="Gösterge hedeflerini ve simüle edilen değerleri yönetin.",
+            text_color=TEXT_MUTED,
             justify="left",
-            wraplength=340,
-            font=("Segoe UI", 10),
+            wraplength=400,
+            font=("Segoe UI", 13),
         )
-        subtitle.grid(row=1, column=0, sticky="w", pady=(6, 18))
+        subtitle.grid(row=1, column=0, columnspan=2, sticky="w", padx=24, pady=(6, 20))
 
         summary_card = self.create_card(control_shell)
-        summary_card.grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        summary_card.grid(row=2, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
         summary_card.grid_columnconfigure(0, weight=1)
         summary_card.grid_columnconfigure(1, weight=1)
 
         self.build_metric(
             summary_card,
             column=0,
-            label="Secili hedef",
+            label="Seçili hedef",
             variable=self.target_display_var,
             accent=ACCENT,
         )
         self.build_metric(
             summary_card,
             column=1,
-            label="Anlik ibre",
+            label="Anlık ibre",
             variable=self.live_display_var,
             accent=SUCCESS,
         )
 
         input_card = self.create_card(control_shell)
-        input_card.grid(row=3, column=0, sticky="ew", pady=(0, 14))
+        input_card.grid(row=3, column=0, sticky="nsew", padx=(24, 7), pady=(0, 14))
         input_card.grid_columnconfigure(0, weight=1)
 
-        input_label = tk.Label(
+        input_label = ctk.CTkLabel(
             input_card,
-            text="Hedef FPM",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="HEDEF FPM",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        input_label.grid(row=0, column=0, sticky="w")
+        input_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 0))
 
-        input_hint = tk.Label(
+        input_hint = ctk.CTkLabel(
             input_card,
-            text="Gecerli aralik: -6000 ile 6000",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
+            text="Aralık: -6000 ile 6000",
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 11),
         )
-        input_hint.grid(row=1, column=0, sticky="w", pady=(2, 12))
+        input_hint.grid(row=1, column=0, sticky="w", padx=16, pady=(2, 8))
 
-        entry_row = tk.Frame(input_card, bg=CARD_BG)
-        entry_row.grid(row=2, column=0, sticky="ew")
+        entry_row = ctk.CTkFrame(input_card, fg_color="transparent")
+        entry_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 12))
         entry_row.grid_columnconfigure(0, weight=1)
 
-        self.input_entry = tk.Entry(
+        self.input_entry = ctk.CTkEntry(
             entry_row,
             textvariable=self.input_var,
-            bg=APP_BG,
-            fg=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            relief="flat",
-            bd=0,
-            highlightthickness=1,
-            highlightbackground="#324567",
-            highlightcolor=ACCENT,
-            font=("Segoe UI Semibold", 16),
+            fg_color="#000000",
+            text_color=TEXT_PRIMARY,
+            border_width=1,
+            border_color=TEXT_MUTED,
+            font=("Segoe UI", 15, "bold"),
+            height=36,
         )
-        self.input_entry.grid(row=0, column=0, sticky="ew", ipady=12, padx=(0, 10))
+        self.input_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         self.input_entry.bind("<Return>", self.on_entry_submit)
 
         apply_button = self.create_button(
@@ -224,59 +221,54 @@ class VSIApp:
             text="Uygula",
             command=self.on_entry_submit,
             primary=True,
-            width=10,
+            width=70,
         )
         apply_button.grid(row=0, column=1)
 
         reset_button = self.create_button(
             input_card,
-            text="Sifirla",
+            text="Sıfırla",
             command=self.reset_value,
             primary=False,
-            width=12,
+            width=80,
         )
-        reset_button.grid(row=3, column=0, sticky="w", pady=(12, 0))
+        reset_button.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 16))
 
         alt_card = self.create_card(control_shell)
-        alt_card.grid(row=4, column=0, sticky="ew", pady=(0, 14))
+        alt_card.grid(row=3, column=1, sticky="nsew", padx=(7, 24), pady=(0, 14))
         alt_card.grid_columnconfigure(0, weight=1)
 
-        alt_label = tk.Label(
+        alt_label = ctk.CTkLabel(
             alt_card,
-            text="Hedef İrtifa (Baro Alt)",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="HEDEF İRTİFA (BARO ALT)",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        alt_label.grid(row=0, column=0, sticky="w")
+        alt_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 0))
 
-        alt_hint = tk.Label(
+        alt_hint = ctk.CTkLabel(
             alt_card,
-            text="Gecerli aralik: 0 ile 50000 FT",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
+            text="Aralık: 0 ile 50000 FT",
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 11),
         )
-        alt_hint.grid(row=1, column=0, sticky="w", pady=(2, 12))
+        alt_hint.grid(row=1, column=0, sticky="w", padx=16, pady=(2, 8))
 
-        alt_entry_row = tk.Frame(alt_card, bg=CARD_BG)
-        alt_entry_row.grid(row=2, column=0, sticky="ew")
+        alt_entry_row = ctk.CTkFrame(alt_card, fg_color="transparent")
+        alt_entry_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
         alt_entry_row.grid_columnconfigure(0, weight=1)
 
-        self.alt_entry = tk.Entry(
+        self.alt_entry = ctk.CTkEntry(
             alt_entry_row,
             textvariable=self.alt_var,
-            bg=APP_BG,
-            fg=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            relief="flat",
-            bd=0,
-            highlightthickness=1,
-            highlightbackground="#324567",
-            highlightcolor=ACCENT,
-            font=("Segoe UI Semibold", 16),
+            fg_color="#000000",
+            text_color=TEXT_PRIMARY,
+            border_width=1,
+            border_color=TEXT_MUTED,
+            font=("Segoe UI", 15, "bold"),
+            height=36,
         )
-        self.alt_entry.grid(row=0, column=0, sticky="ew", ipady=12, padx=(0, 10))
+        self.alt_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         self.alt_entry.bind("<Return>", self.on_alt_submit)
 
         alt_apply_button = self.create_button(
@@ -284,169 +276,124 @@ class VSIApp:
             text="Uygula",
             command=self.on_alt_submit,
             primary=True,
-            width=10,
+            width=70,
         )
         alt_apply_button.grid(row=0, column=1)
 
         static_card = self.create_card(control_shell)
-        static_card.grid(row=5, column=0, sticky="ew", pady=(0, 14))
+        static_card.grid(row=4, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
         static_card.grid_columnconfigure(0, weight=1)
         static_card.grid_columnconfigure(1, weight=1)
 
-        static_label = tk.Label(
+        static_label = ctk.CTkLabel(
             static_card,
-            text="Static Port Girdileri (FPM)",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="STATIC PORT GİRDİLERİ (FPM)",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        static_label.grid(row=0, column=0, columnspan=2, sticky="w")
+        static_label.grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 0))
 
-        static_hint = tk.Label(
+        static_hint = ctk.CTkLabel(
             static_card,
-            text="Hata lambasini test etmek icin gosterge degeriyle uyusmayan degerler girip Uygula'ya basin.",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
-            wraplength=340,
+            text="Hata lambasını test etmek için gösterge değeriyle uyuşmayan değerler girip Uygula'ya basın.",
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 12),
+            wraplength=400,
             justify="left",
         )
-        static_hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 12))
+        static_hint.grid(row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(4, 12))
 
-        fo_label = tk.Label(
+        fo_label = ctk.CTkLabel(
             static_card,
             text="F/O Static Port:",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 12),
         )
-        fo_label.grid(row=2, column=0, sticky="w", pady=(0, 2))
+        fo_label.grid(row=2, column=0, sticky="w", padx=16, pady=(0, 4))
 
-        self.fo_entry = tk.Entry(
+        self.fo_entry = ctk.CTkEntry(
             static_card,
             textvariable=self.fo_static_var,
-            bg=APP_BG,
-            fg=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            relief="flat",
-            bd=0,
-            highlightthickness=1,
-            highlightbackground="#324567",
-            highlightcolor=ACCENT,
-            font=("Segoe UI Semibold", 12),
+            fg_color="#000000",
+            text_color=TEXT_PRIMARY,
+            border_width=1,
+            border_color=TEXT_MUTED,
+            font=("Segoe UI", 14, "bold"),
+            height=34,
         )
-        self.fo_entry.grid(row=3, column=0, sticky="ew", ipady=6, padx=(0, 8))
+        self.fo_entry.grid(row=3, column=0, sticky="ew", padx=(16, 8))
         self.fo_entry.bind("<Return>", self.check_fault)
         self.fo_entry.bind("<KeyRelease>", self.check_fault)
 
-        stby_label = tk.Label(
+        stby_label = ctk.CTkLabel(
             static_card,
             text="STNDBY Static Port:",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 12),
         )
-        stby_label.grid(row=2, column=1, sticky="w", pady=(0, 2))
+        stby_label.grid(row=2, column=1, sticky="w", padx=(8, 16), pady=(0, 4))
 
-        self.stby_entry = tk.Entry(
+        self.stby_entry = ctk.CTkEntry(
             static_card,
             textvariable=self.stby_static_var,
-            bg=APP_BG,
-            fg=TEXT_PRIMARY,
-            insertbackground=TEXT_PRIMARY,
-            relief="flat",
-            bd=0,
-            highlightthickness=1,
-            highlightbackground="#324567",
-            highlightcolor=ACCENT,
-            font=("Segoe UI Semibold", 12),
+            fg_color="#000000",
+            text_color=TEXT_PRIMARY,
+            border_width=1,
+            border_color=TEXT_MUTED,
+            font=("Segoe UI", 14, "bold"),
+            height=34,
         )
-        self.stby_entry.grid(row=3, column=1, sticky="ew", ipady=6, padx=(8, 0))
+        self.stby_entry.grid(row=3, column=1, sticky="ew", padx=(8, 16))
         self.stby_entry.bind("<Return>", self.check_fault)
         self.stby_entry.bind("<KeyRelease>", self.check_fault)
 
         static_apply_button = self.create_button(
             static_card,
-            text="Degerleri Uygula",
+            text="Değerleri Uygula",
             command=self.check_fault,
             primary=False,
-            width=14,
+            width=140,
         )
-        static_apply_button.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky="w")
+        static_apply_button.grid(row=4, column=0, columnspan=2, padx=16, pady=(16, 16), sticky="w")
 
         slider_card = self.create_card(control_shell)
-        slider_card.grid(row=6, column=0, sticky="ew", pady=(0, 14))
+        slider_card.grid(row=5, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
         slider_card.grid_columnconfigure(0, weight=1)
 
-        slider_label = tk.Label(
+        slider_label = ctk.CTkLabel(
             slider_card,
-            text="Hizli ayar",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="HIZLI AYAR",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        slider_label.grid(row=0, column=0, sticky="w")
+        slider_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 0))
 
-        slider_hint = tk.Label(
-            slider_card,
-            text="Kaydirici ibre hedefini aninda degistirir.",
-            bg=CARD_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
-        )
-        slider_hint.grid(row=1, column=0, sticky="w", pady=(2, 10))
-
-        self.scale = tk.Scale(
+        self.scale = ctk.CTkSlider(
             slider_card,
             from_=MIN_FPM,
             to=MAX_FPM,
-            orient=tk.HORIZONTAL,
-            resolution=50,
-            showvalue=False,
-            length=320,
-            sliderlength=28,
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            highlightthickness=0,
-            troughcolor=APP_BG,
-            activebackground=ACCENT,
+            number_of_steps=int((MAX_FPM - MIN_FPM) / 50),
             variable=self.scale_var,
             command=self.on_scale_change,
+            fg_color="#000000",
+            progress_color=ACCENT,
+            button_color=ACCENT,
+            button_hover_color="#f4b942",
         )
-        self.scale.grid(row=2, column=0, sticky="ew")
-
-        marker_row = tk.Frame(slider_card, bg=CARD_BG)
-        marker_row.grid(row=3, column=0, sticky="ew", pady=(6, 0))
-        marker_row.grid_columnconfigure(0, weight=1)
-        marker_row.grid_columnconfigure(1, weight=1)
-        marker_row.grid_columnconfigure(2, weight=1)
-
-        for index, text in enumerate(("Alcalis", "Duz ucus", "Tirmanis")):
-            label = tk.Label(
-                marker_row,
-                text=text,
-                bg=CARD_BG,
-                fg=TEXT_MUTED,
-                font=("Segoe UI", 9),
-            )
-            label.grid(row=0, column=index, sticky=("w" if index == 0 else "e" if index == 2 else ""))
+        self.scale.grid(row=1, column=0, sticky="ew", padx=16, pady=(16, 16))
 
         preset_card = self.create_card(control_shell)
-        preset_card.grid(row=7, column=0, sticky="ew", pady=(0, 14))
-        preset_card.grid_columnconfigure(0, weight=1)
-        preset_card.grid_columnconfigure(1, weight=1)
-        preset_card.grid_columnconfigure(2, weight=1)
-        preset_card.grid_columnconfigure(3, weight=1)
-        preset_card.grid_columnconfigure(4, weight=1)
+        preset_card.grid(row=6, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
+        for i in range(5):
+            preset_card.grid_columnconfigure(i, weight=1)
 
-        preset_title = tk.Label(
+        preset_title = ctk.CTkLabel(
             preset_card,
-            text="Hazir degerler",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="HAZIR DEĞERLER",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        preset_title.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
+        preset_title.grid(row=0, column=0, columnspan=5, sticky="w", padx=16, pady=(16, 12))
 
         for index, value in enumerate(PRESET_VALUES):
             button = self.create_button(
@@ -454,84 +401,79 @@ class VSIApp:
                 text=str(value),
                 command=lambda selected=value: self.apply_value(selected),
                 primary=False,
-                width=8,
+                width=60,
             )
-            button.grid(row=1, column=index, padx=(0 if index == 0 else 6, 0), sticky="ew")
+            button.grid(row=1, column=index, padx=(16 if index == 0 else 6, 16 if index == 4 else 0), pady=(0, 16), sticky="ew")
 
         status_card = self.create_card(control_shell)
-        status_card.grid(row=8, column=0, sticky="ew")
+        status_card.grid(row=7, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 24))
 
-        status_title = tk.Label(
+        status_title = ctk.CTkLabel(
             status_card,
-            text="Durum",
-            bg=CARD_BG,
-            fg=TEXT_PRIMARY,
-            font=("Segoe UI Semibold", 12),
+            text="DURUM",
+            text_color=TEXT_PRIMARY,
+            font=("Segoe UI", 14, "bold"),
         )
-        status_title.pack(anchor="w")
+        status_title.pack(anchor="w", padx=16, pady=(16, 0))
 
-        self.status_label = tk.Label(
+        self.status_label = ctk.CTkLabel(
             status_card,
             textvariable=self.status_var,
-            bg=CARD_BG,
-            fg=NEUTRAL,
-            wraplength=330,
+            text_color=NEUTRAL,
+            wraplength=400,
             justify="left",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 13),
         )
-        self.status_label.pack(anchor="w", pady=(8, 0))
+        self.status_label.pack(anchor="w", padx=16, pady=(6, 16))
 
     def create_card(self, parent):
-        return tk.Frame(parent, bg=CARD_BG, padx=16, pady=16)
+        return ctk.CTkFrame(parent, fg_color="#000000", border_width=2, border_color=ACCENT, corner_radius=2)
 
     def create_button(self, parent, text, command, primary, width):
-        background = ACCENT if primary else BUTTON_BG
-        foreground = "#111827" if primary else TEXT_PRIMARY
-        active_background = "#f4b942" if primary else BUTTON_ACTIVE
+        bg_color = "#000000"
+        hover_color = BUTTON_ACTIVE
+        text_color = TEXT_PRIMARY
+        border_width = 2 if primary else 1
 
-        return tk.Button(
+        return ctk.CTkButton(
             parent,
-            text=text,
+            text=text.upper(),
             command=command,
             width=width,
-            relief="flat",
-            bd=0,
-            bg=background,
-            fg=foreground,
-            activebackground=active_background,
-            activeforeground=foreground,
-            cursor="hand2",
-            font=("Segoe UI Semibold", 10),
-            padx=12,
-            pady=8,
+            fg_color=bg_color,
+            hover_color=hover_color,
+            text_color=text_color,
+            border_width=border_width,
+            border_color=TEXT_MUTED,
+            corner_radius=2,
+            font=("Segoe UI", 13, "bold"),
+            height=36,
         )
 
     def build_metric(self, parent, column, label, variable, accent):
-        metric_frame = tk.Frame(parent, bg=APP_BG, padx=14, pady=14)
-        metric_frame.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 8, 0))
+        metric_frame = ctk.CTkFrame(parent, fg_color="#000000", corner_radius=2, border_width=1, border_color=TEXT_MUTED)
+        metric_frame.grid(row=0, column=column, sticky="nsew", padx=(16 if column == 0 else 8, 16 if column == 1 else 8), pady=16)
 
-        title = tk.Label(
+        title = ctk.CTkLabel(
             metric_frame,
             text=label,
-            bg=APP_BG,
-            fg=TEXT_MUTED,
-            font=("Segoe UI", 9),
+            text_color=TEXT_MUTED,
+            font=("Segoe UI", 12),
         )
-        title.pack(anchor="w")
+        title.pack(anchor="w", padx=16, pady=(12, 0))
 
-        value_label = tk.Label(
+        value_label = ctk.CTkLabel(
             metric_frame,
             textvariable=variable,
-            bg=APP_BG,
-            fg=accent,
-            font=("Segoe UI Semibold", 18),
+            text_color=accent,
+            font=("Consolas", 26, "bold"),
         )
-        value_label.pack(anchor="w", pady=(8, 0))
+        value_label.pack(anchor="w", padx=16, pady=(4, 12))
 
     def set_status(self, message, tone):
         color = {"success": SUCCESS, "error": ERROR}.get(tone, NEUTRAL)
         self.status_var.set(message)
-        self.status_label.configure(fg=color)
+        self.status_label.configure(text_color=color)
 
     def apply_value(self, value, announce=True):
         requested_value = float(value)
@@ -873,7 +815,8 @@ class VSIApp:
 
 
 def main():
-    root = tk.Tk()
+    ctk.set_appearance_mode("dark")
+    root = ctk.CTk()
     VSIApp(root)
     root.mainloop()
 
