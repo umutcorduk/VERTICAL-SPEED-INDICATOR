@@ -67,11 +67,7 @@ class VSIApp:
         self.current_val = 0.0
         self._syncing_controls = False
 
-        self.alt_var = tk.StringVar(value="10000")
-        self.target_alt = 10000.0
-        self.current_alt = 10000.0
-        self.alt_text_id: Optional[int] = None
-        self.alt_bg_id: Optional[int] = None
+
 
         self.input_var = tk.StringVar(value="0")
         self.scale_var = tk.DoubleVar(value=0.0)
@@ -197,7 +193,7 @@ class VSIApp:
         )
 
         input_card = self.create_card(control_shell)
-        input_card.grid(row=3, column=0, sticky="nsew", padx=(24, 7), pady=(0, 14))
+        input_card.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=24, pady=(0, 14))
         input_card.grid_columnconfigure(0, weight=1)
 
         input_label = ctk.CTkLabel(
@@ -251,51 +247,7 @@ class VSIApp:
         )
         reset_button.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 16))
 
-        alt_card = self.create_card(control_shell)
-        alt_card.grid(row=3, column=1, sticky="nsew", padx=(7, 24), pady=(0, 14))
-        alt_card.grid_columnconfigure(0, weight=1)
 
-        alt_label = ctk.CTkLabel(
-            alt_card,
-            text="HEDEF İRTİFA (BARO ALT)",
-            text_color=TEXT_PRIMARY,
-            font=("Segoe UI", 14, "bold"),
-        )
-        alt_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 0))
-
-        alt_hint = ctk.CTkLabel(
-            alt_card,
-            text="Aralık: 0 ile 50000 FT",
-            text_color=TEXT_MUTED,
-            font=("Segoe UI", 11),
-        )
-        alt_hint.grid(row=1, column=0, sticky="w", padx=16, pady=(2, 8))
-
-        alt_entry_row = ctk.CTkFrame(alt_card, fg_color="transparent")
-        alt_entry_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
-        alt_entry_row.grid_columnconfigure(0, weight=1)
-
-        self.alt_entry = ctk.CTkEntry(
-            alt_entry_row,
-            textvariable=self.alt_var,
-            fg_color="#000000",
-            text_color=TEXT_PRIMARY,
-            border_width=1,
-            border_color=TEXT_MUTED,
-            font=("Segoe UI", 15, "bold"),
-            height=36,
-        )
-        self.alt_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        self.alt_entry.bind("<Return>", self.on_alt_submit)
-
-        alt_apply_button = self.create_button(
-            alt_entry_row,
-            text="Uygula",
-            command=self.on_alt_submit,
-            primary=True,
-            width=70,
-        )
-        alt_apply_button.grid(row=0, column=1)
 
         static_card = self.create_card(control_shell)
         static_card.grid(row=4, column=0, columnspan=2, sticky="ew", padx=24, pady=(0, 14))
@@ -594,18 +546,7 @@ class VSIApp:
         self.scale_var.set(rounded_value)
         self._syncing_controls = False
 
-    def on_alt_submit(self, event=None):
-        try:
-            val = float(self.alt_var.get().strip())
-            val = max(0.0, min(50000.0, val))
-            self.target_alt = val
-            self.alt_var.set(str(int(val)))
-            self.set_status(f"Hedef irtifa {int(val)} FT olarak ayarlandı.", "success")
-        except ValueError:
-            self.set_status("Gecerli bir irtifa girin (örn: 10000).", "error")
-            self.alt_entry.focus_set()
-            self.alt_entry.selection_range(0, tk.END)
-        return "break"
+
 
     def on_entry_submit(self, event=None):
         try:
@@ -671,29 +612,7 @@ class VSIApp:
         )
         self.update_fault_light()
 
-        # Recreate altimeter LED display box
-        box_w = max(50, int(self.r * 0.28))
-        box_h = max(18, int(self.r * 0.14))
-        box_x = self.cx
-        box_y = self.cy + self.r * 0.26
-        self.alt_bg_id = self.canvas.create_rectangle(
-            box_x - box_w, box_y - box_h,
-            box_x + box_w, box_y + box_h,
-            fill="#050505", outline="#1a1a1a", width=3,
-        )
-        # Background "ghost" digits for realistic LED effect
-        self.alt_ghost_id = self.canvas.create_text(
-            box_x, box_y,
-            text="88888",
-            fill="#2a0d00",
-            font=("Consolas", max(14, int(self.r * 0.15)), "bold")
-        )
-        self.alt_text_id = self.canvas.create_text(
-            box_x, box_y,
-            text=f"{int(self.current_alt):05d}",
-            fill="#ff5500",
-            font=("Consolas", max(14, int(self.r * 0.15)), "bold")
-        )
+
 
         # Resize badges
         self.resized_badges.clear()
@@ -821,7 +740,7 @@ class VSIApp:
             font=("Segoe UI", font_label),
         )
         self.canvas.create_text(
-            self.cx, self.cy + r * 0.47,
+            self.cx, self.cy + r * 0.32,
             text="FEET/MIN x1000", fill="white",
             font=("Segoe UI", font_label),
         )
@@ -867,14 +786,7 @@ class VSIApp:
         else:
             self.current_val = self.target_val
 
-        alt_diff = self.target_alt - self.current_alt
-        if abs(alt_diff) > 1.0:
-            self.current_alt += alt_diff * 0.05
-        else:
-            self.current_alt = self.target_alt
 
-        if hasattr(self, 'alt_text_id') and self.alt_text_id:
-            self.canvas.itemconfig(self.alt_text_id, text=f"{int(self.current_alt):05d}")
 
         self.live_display_var.set(format_fpm_value(self.current_val))
         
