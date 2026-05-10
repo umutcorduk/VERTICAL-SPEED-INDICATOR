@@ -44,8 +44,8 @@ class VSIApp:
         self.root = root
         self.root.title("Vertical Speed Indicator")
         self.root.configure(bg=APP_BG)
-        self.root.geometry("1080x680")
-        self.root.minsize(900, 600)
+        self.root.geometry("1080x780")
+        self.root.minsize(900, 700)
         self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
 
@@ -74,6 +74,10 @@ class VSIApp:
         self.target_display_var = tk.StringVar(value=format_fpm_value(0))
         self.live_display_var = tk.StringVar(value=format_fpm_value(0))
         self.status_var = tk.StringVar(value="Hazir. Yeni hedef dikey hızı seçin.")
+
+        self.fo_static_var = tk.StringVar(value="0")
+        self.stby_static_var = tk.StringVar(value="0")
+        self.fault_active = False
 
         self.needle: Optional[int] = None
         self.center_cap: Optional[int] = None
@@ -284,8 +288,94 @@ class VSIApp:
         )
         alt_apply_button.grid(row=0, column=1)
 
+        static_card = self.create_card(control_shell)
+        static_card.grid(row=5, column=0, sticky="ew", pady=(0, 14))
+        static_card.grid_columnconfigure(0, weight=1)
+        static_card.grid_columnconfigure(1, weight=1)
+
+        static_label = tk.Label(
+            static_card,
+            text="Static Port Girdileri (FPM)",
+            bg=CARD_BG,
+            fg=TEXT_PRIMARY,
+            font=("Segoe UI Semibold", 12),
+        )
+        static_label.grid(row=0, column=0, columnspan=2, sticky="w")
+
+        static_hint = tk.Label(
+            static_card,
+            text="Hata lambasini test etmek icin gosterge degeriyle uyusmayan degerler girip Uygula'ya basin.",
+            bg=CARD_BG,
+            fg=TEXT_MUTED,
+            font=("Segoe UI", 9),
+            wraplength=340,
+            justify="left",
+        )
+        static_hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 12))
+
+        fo_label = tk.Label(
+            static_card,
+            text="F/O Static Port:",
+            bg=CARD_BG,
+            fg=TEXT_MUTED,
+            font=("Segoe UI", 9),
+        )
+        fo_label.grid(row=2, column=0, sticky="w", pady=(0, 2))
+
+        self.fo_entry = tk.Entry(
+            static_card,
+            textvariable=self.fo_static_var,
+            bg=APP_BG,
+            fg=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#324567",
+            highlightcolor=ACCENT,
+            font=("Segoe UI Semibold", 12),
+        )
+        self.fo_entry.grid(row=3, column=0, sticky="ew", ipady=6, padx=(0, 8))
+        self.fo_entry.bind("<Return>", self.check_fault)
+        self.fo_entry.bind("<KeyRelease>", self.check_fault)
+
+        stby_label = tk.Label(
+            static_card,
+            text="STNDBY Static Port:",
+            bg=CARD_BG,
+            fg=TEXT_MUTED,
+            font=("Segoe UI", 9),
+        )
+        stby_label.grid(row=2, column=1, sticky="w", pady=(0, 2))
+
+        self.stby_entry = tk.Entry(
+            static_card,
+            textvariable=self.stby_static_var,
+            bg=APP_BG,
+            fg=TEXT_PRIMARY,
+            insertbackground=TEXT_PRIMARY,
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#324567",
+            highlightcolor=ACCENT,
+            font=("Segoe UI Semibold", 12),
+        )
+        self.stby_entry.grid(row=3, column=1, sticky="ew", ipady=6, padx=(8, 0))
+        self.stby_entry.bind("<Return>", self.check_fault)
+        self.stby_entry.bind("<KeyRelease>", self.check_fault)
+
+        static_apply_button = self.create_button(
+            static_card,
+            text="Degerleri Uygula",
+            command=self.check_fault,
+            primary=False,
+            width=14,
+        )
+        static_apply_button.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky="w")
+
         slider_card = self.create_card(control_shell)
-        slider_card.grid(row=5, column=0, sticky="ew", pady=(0, 14))
+        slider_card.grid(row=6, column=0, sticky="ew", pady=(0, 14))
         slider_card.grid_columnconfigure(0, weight=1)
 
         slider_label = tk.Label(
@@ -342,7 +432,7 @@ class VSIApp:
             label.grid(row=0, column=index, sticky=("w" if index == 0 else "e" if index == 2 else ""))
 
         preset_card = self.create_card(control_shell)
-        preset_card.grid(row=6, column=0, sticky="ew", pady=(0, 14))
+        preset_card.grid(row=7, column=0, sticky="ew", pady=(0, 14))
         preset_card.grid_columnconfigure(0, weight=1)
         preset_card.grid_columnconfigure(1, weight=1)
         preset_card.grid_columnconfigure(2, weight=1)
@@ -369,7 +459,7 @@ class VSIApp:
             button.grid(row=1, column=index, padx=(0 if index == 0 else 6, 0), sticky="ew")
 
         status_card = self.create_card(control_shell)
-        status_card.grid(row=7, column=0, sticky="ew")
+        status_card.grid(row=8, column=0, sticky="ew")
 
         status_title = tk.Label(
             status_card,
@@ -450,12 +540,48 @@ class VSIApp:
         self.target_display_var.set(format_fpm_value(clamped_value))
         self.sync_controls(clamped_value)
 
+        self.check_fault()
+
         if announce:
             if clamped_value != requested_value:
                 message = f"Girilen deger sinirlandi. {build_status_message(clamped_value)}"
             else:
                 message = build_status_message(clamped_value)
             self.set_status(message, "success")
+
+    def check_fault(self, event=None):
+        try:
+            fo_val = float(self.fo_static_var.get().strip())
+        except ValueError:
+            fo_val = None
+            
+        try:
+            stby_val = float(self.stby_static_var.get().strip())
+        except ValueError:
+            stby_val = None
+            
+        vsi_val = self.target_val
+        
+        fault = False
+        if fo_val is None or stby_val is None:
+            fault = True
+        else:
+            if abs(fo_val - vsi_val) > 10 or abs(stby_val - vsi_val) > 10:
+                fault = True
+                
+        self.fault_active = fault
+        self.update_fault_light()
+
+    def update_fault_light(self):
+        if not hasattr(self, 'fault_text_id') or not self.fault_text_id:
+            return
+        
+        if self.fault_active:
+            self.canvas.itemconfig(self.fault_box_id, outline="#ff0000", fill="#ff0000")
+            self.canvas.itemconfig(self.fault_text_id, fill="#ffffff")
+        else:
+            self.canvas.itemconfig(self.fault_box_id, outline="#330000", fill="#1a0000")
+            self.canvas.itemconfig(self.fault_text_id, fill="#4d0000")
 
     def sync_controls(self, value):
         rounded_value = int(round(value))
@@ -521,6 +647,25 @@ class VSIApp:
         self.r = min(w, h) * 0.45
         self.canvas.delete("all")
         self.draw_gauge()
+
+        # FAULT light
+        fault_w = max(40, int(self.r * 0.20))
+        fault_h = max(15, int(self.r * 0.08))
+        fault_x = self.cx
+        fault_y = self.cy - self.r * 0.26
+        
+        self.fault_box_id = self.canvas.create_rectangle(
+            fault_x - fault_w, fault_y - fault_h,
+            fault_x + fault_w, fault_y + fault_h,
+            fill="#1a0000", outline="#330000", width=2,
+        )
+        self.fault_text_id = self.canvas.create_text(
+            fault_x, fault_y,
+            text="FAULT",
+            fill="#4d0000",
+            font=("Segoe UI Semibold", max(10, int(self.r * 0.09)))
+        )
+        self.update_fault_light()
 
         # Recreate altimeter LED display box
         box_w = max(50, int(self.r * 0.28))
